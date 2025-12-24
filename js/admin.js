@@ -121,7 +121,8 @@ function importJSON() {
 }
 
 function logout() {
-  sessionStorage.clear();
+  try{ sessionStorage.removeItem('isLoggedIn'); }catch(e){}
+  try{ localStorage.removeItem('isLoggedIn'); }catch(e){}
   location.href = "../admin.html";
 }
 

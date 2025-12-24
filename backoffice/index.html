@@ -15,7 +15,9 @@
 </head>
 <body>
 <script>
-if(sessionStorage.getItem("isLoggedIn")!=="true"){location.href="../admin.html"}
+if(sessionStorage.getItem("isLoggedIn")!=="true" && localStorage.getItem("isLoggedIn")!=="true"){
+	location.href="../admin.html";
+}
 </script>
 
 <div class="container admin-panel" style="padding:24px">
