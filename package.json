@@ -1,0 +1,12 @@
+{
+  "name": "travel-site-save-server",
+  "version": "1.0.0",
+  "description": "Optional local server to persist backoffice data to CSV files",
+  "main": "save-server.js",
+  "scripts": {
+    "start": "node save-server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

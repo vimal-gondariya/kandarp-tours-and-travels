@@ -1,0 +1,7 @@
+node_modules/
+.DS_Store
+.env
+gh-pages
+npm-debug.log
+.vscode/
+data/*.csv
