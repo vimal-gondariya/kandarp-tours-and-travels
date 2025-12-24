@@ -313,7 +313,32 @@ function renderSettings() {
   (document.getElementById('setting_fontFamily')||{}).value = s.fontFamily || 'Inter';
   (document.getElementById('setting_heroTitle')||{}).value = s.heroTitle || '';
   (document.getElementById('setting_heroSubtitle')||{}).value = s.heroSubtitle || '';
-}
+  (document.getElementById('setting_headerBg')||{}).value = s.headerBg || '#0a7cff';
+
+  // default page HTML content (from current static pages)
+  const defaultTerms = `<h2>Terms & Conditions</h2>
+      <p>These are the general terms and conditions for using Kandarp Tours & Travels. By using the site you agree to the terms.</p>
+      <h3>Booking</h3>
+      <p>All bookings are subject to availability and confirmation.</p>
+      <h3>Liability</h3>
+      <p>We act as an agent for service providers; our liability is limited as per applicable law.</p>`;
+  const defaultPrivacy = `<h2>Privacy Policy</h2>
+      <p>We respect your privacy. This page describes how we collect and use personal data.</p>
+      <h3>Data Collection</h3>
+      <p>We collect only necessary information for bookings and support; data is stored locally in your browser and optionally exported to CSV.</p>`;
+  const defaultRefund = `<h2>Refund Policy</h2>
+      <p>Refunds depend on supplier policies. Requests must be submitted within 7 days of cancellation with proof.</p>`;
+
+  // load into editors if present
+  if (quillTerms) quillTerms.clipboard.dangerouslyPasteHTML(s.termsHtml || defaultTerms);
+  else (document.getElementById('setting_termsHtml')||{}).value = s.termsHtml || defaultTerms;
+
+  if (quillPrivacy) quillPrivacy.clipboard.dangerouslyPasteHTML(s.privacyHtml || defaultPrivacy);
+  else (document.getElementById('setting_privacyHtml')||{}).value = s.privacyHtml || defaultPrivacy;
+
+  if (quillRefund) quillRefund.clipboard.dangerouslyPasteHTML(s.refundHtml || defaultRefund);
+  else (document.getElementById('setting_refundHtml')||{}).value = s.refundHtml || defaultRefund;
+} 
 
 function saveSettings() {
   const data = getData();
@@ -324,6 +349,12 @@ function saveSettings() {
   data.settings.fontFamily = (document.getElementById('setting_fontFamily')||{}).value || data.settings.fontFamily;
   data.settings.heroTitle = (document.getElementById('setting_heroTitle')||{}).value || data.settings.heroTitle;
   data.settings.heroSubtitle = (document.getElementById('setting_heroSubtitle')||{}).value || data.settings.heroSubtitle;
+  data.settings.headerBg = (document.getElementById('setting_headerBg')||{}).value || data.settings.headerBg;
+
+  // page HTML content from editors (Quill or textarea fallback)
+  if (quillTerms) data.settings.termsHtml = quillTerms.root.innerHTML; else data.settings.termsHtml = (document.getElementById('setting_termsHtml')||{}).value || data.settings.termsHtml;
+  if (quillPrivacy) data.settings.privacyHtml = quillPrivacy.root.innerHTML; else data.settings.privacyHtml = (document.getElementById('setting_privacyHtml')||{}).value || data.settings.privacyHtml;
+  if (quillRefund) data.settings.refundHtml = quillRefund.root.innerHTML; else data.settings.refundHtml = (document.getElementById('setting_refundHtml')||{}).value || data.settings.refundHtml; 
 
   // handle logo file if present
   const f = (document.getElementById('setting_logoFile')||{}).files && document.getElementById('setting_logoFile').files[0];
@@ -349,7 +380,19 @@ function resetSettings() {
   if (!confirm('Reset settings to defaults?')) return;
   const data = getData();
   data.settings = {
-    siteName: 'Kandarp Tours & Travels', logo: '', themeColor: '#0a7cff', fontFamily: 'Inter', fontColor: '#0f172a', heroTitle: 'Explore curated travel packages', heroSubtitle: 'Discover memorable journeys and experiences'
+    siteName: 'Kandarp Tours & Travels', logo: '', themeColor: '#0a7cff', headerBg: '#0a7cff', fontFamily: 'Inter', fontColor: '#0f172a', heroTitle: 'Explore curated travel packages', heroSubtitle: 'Discover memorable journeys and experiences',
+    termsHtml: `<h2>Terms & Conditions</h2>
+      <p>These are the general terms and conditions for using Kandarp Tours & Travels. By using the site you agree to the terms.</p>
+      <h3>Booking</h3>
+      <p>All bookings are subject to availability and confirmation.</p>
+      <h3>Liability</h3>
+      <p>We act as an agent for service providers; our liability is limited as per applicable law.</p>`,
+    privacyHtml: `<h2>Privacy Policy</h2>
+      <p>We respect your privacy. This page describes how we collect and use personal data.</p>
+      <h3>Data Collection</h3>
+      <p>We collect only necessary information for bookings and support; data is stored locally in your browser and optionally exported to CSV.</p>`,
+    refundHtml: `<h2>Refund Policy</h2>
+      <p>Refunds depend on supplier policies. Requests must be submitted within 7 days of cancellation with proof.</p>`
   };
   saveData(data);
   applySettingsToSite();
@@ -369,6 +412,9 @@ function applySettingsToSite() {
   try {
     if (s.themeColor) document.documentElement.style.setProperty('--primary', s.themeColor);
     if (s.fontColor) document.documentElement.style.setProperty('--font-color', s.fontColor);
+    if (s.headerBg) {
+      const headerEl = document.querySelector('header'); if (headerEl) headerEl.style.background = s.headerBg;
+    }
     if (s.fontFamily) {
       loadGoogleFont(s.fontFamily);
       document.body.style.fontFamily = (s.fontFamily || 'Inter').replace(/\+/g,' ')+', system-ui, sans-serif';
@@ -417,5 +463,20 @@ function deleteMedia(id) {
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
 }
 
+// quill editor references
+let quillTerms = null;
+let quillPrivacy = null;
+let quillRefund = null;
+
 // auto-render on load if running in backoffice
-if (typeof window !== 'undefined') window.addEventListener('load', ()=>{ try { renderAdmin(); } catch(e){} });
+if (typeof window !== 'undefined') window.addEventListener('load', ()=>{ try { renderAdmin(); } catch(e){} 
+  // initialize Quill editors if available
+  try{
+    if (typeof Quill !== 'undefined'){
+      if (document.getElementById('editor_terms')) quillTerms = new Quill('#editor_terms', { theme: 'snow' });
+      if (document.getElementById('editor_privacy')) quillPrivacy = new Quill('#editor_privacy', { theme: 'snow' });
+      if (document.getElementById('editor_refund')) quillRefund = new Quill('#editor_refund', { theme: 'snow' });
+    }
+  }catch(e){ console.warn('Quill init failed', e); }
+  try{ renderSettings(); }catch(e){}
+});
