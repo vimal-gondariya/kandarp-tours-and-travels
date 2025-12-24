@@ -19,19 +19,27 @@
 <script>
 (function(){
   try{
-    const raw = localStorage.getItem('TRAVEL_SITE_DATA'); if(!raw) return;
-    const data = JSON.parse(raw);
-    const s = data.settings || {};
-    // header background
-    if (s.headerBg){ const h = document.querySelector('header'); if(h) h.style.background = s.headerBg; }
-    // brand text & logo
-    if (s.siteName){ const brandText = document.querySelector('.brand .brand-text'); if(brandText) brandText.textContent = s.siteName; }
-    if (s.logo){ const logoEl = document.getElementById('siteLogo'); if(logoEl) { logoEl.src = s.logo; logoEl.style.display='inline-block'; } }
-    // page HTML replacements
-    const path = location.pathname.split('/').pop();
-    if (path === 'terms.html' && s.termsHtml){ const sec = document.querySelector('main .section'); if(sec) sec.innerHTML = s.termsHtml; }
-    if (path === 'privacy.html' && s.privacyHtml){ const sec = document.querySelector('main .section'); if(sec) sec.innerHTML = s.privacyHtml; }
-    if (path === 'refund.html' && s.refundHtml){ const sec = document.querySelector('main .section'); if(sec) sec.innerHTML = s.refundHtml; }
+    // load site data from server (no localStorage fallback)
+    fetch('/data').then(r=>r.json()).then(res=>{ if (res && res.ok && res.data) applySiteData(res.data); }).catch(()=>{/* ignore if server not available */});
+
+    function applySiteData(data){
+      try{
+        const s = data.settings || {};
+        // header background
+        if (s.headerBg){ const h = document.querySelector('header'); if(h){ h.style.backgroundImage = 'none'; h.style.backgroundColor = s.headerBg; } }
+        // brand text & logo
+        if (s.siteName){ const brandText = document.querySelector('.brand .brand-text'); if(brandText) brandText.textContent = s.siteName; }
+        if (s.logo){ const logoEl = document.getElementById('siteLogo'); if(logoEl) { logoEl.src = s.logo; logoEl.style.display='inline-block'; } }
+        // favicon (if provided)
+        if (s.favicon){ try{ let link = document.querySelector('link[rel="icon"]'); if(!link){ link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); } link.href = s.favicon; }catch(e){}
+        }
+        // page HTML replacements
+        const path = location.pathname.split('/').pop();
+        if (path === 'terms.html' && s.termsHtml){ const sec = document.querySelector('main .section'); if(sec) sec.innerHTML = s.termsHtml; }
+        if (path === 'privacy.html' && s.privacyHtml){ const sec = document.querySelector('main .section'); if(sec) sec.innerHTML = s.privacyHtml; }
+        if (path === 'refund.html' && s.refundHtml){ const sec = document.querySelector('main .section'); if(sec) sec.innerHTML = s.refundHtml; }
+      }catch(e){ /* ignore */ }
+    }
   }catch(e){ /* ignore */ }
 })();
 </script>

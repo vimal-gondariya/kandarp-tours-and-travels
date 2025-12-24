@@ -18,12 +18,19 @@ function renderPackages() {
 function renderMedia() {
   const el = document.getElementById("media");
   if (!el) return;
-  el.innerHTML = data.testimonials.map(m => {
-    const mediaHtml = m.type === "image" ? `<img src="${m.src}" alt="${m.title}">` : `<video controls src="${m.src}"></video>`;
+  el.innerHTML = data.testimonials.map(t => {
+    // use first media item as a preview if present
+    let mediaHtml = '';
+    if (Array.isArray(t.media) && t.media.length > 0){
+      const m = t.media[0];
+      mediaHtml = m.type === 'image' ? `<img src="${m.url}" alt="${t.title}">` : `<video controls src="${m.url}"></video>`;
+    } else if (t.src) {
+      mediaHtml = (t.type === 'image') ? `<img src="${t.src}" alt="${t.title}">` : `<video controls src="${t.src}"></video>`;
+    }
     return `
       <div class="card">
         ${mediaHtml}
-        <h3>${m.title}</h3>
+        <h3>${t.title}</h3>
       </div>
     `;
   }).join("");
@@ -49,6 +56,8 @@ function applySiteSettings() {
     const brandText = document.querySelector('.brand .brand-text');
     const fallback = 'assets/logo.svg';
     if (logoEl) { if (s.logo) { logoEl.src = s.logo; logoEl.style.display='inline-block'; } else { logoEl.src = fallback; logoEl.style.display='inline-block'; } }
+    if (s.favicon){ try{ let link = document.querySelector('link[rel="icon"]'); if(!link){ link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); } link.href = s.favicon; }catch(e){}
+    }
     if (brandText) brandText.textContent = s.siteName || brandText.textContent;
     const heroTitleEl = document.querySelector('.hero h1');
     const heroSubEl = document.querySelector('.hero p');

@@ -72,65 +72,45 @@ function addPackage() {
   try { exportCSVs(); } catch(e) {}
 }
 
-function addMedia() {
+async function addMedia() {
   const files = document.getElementById('mediaFile').files;
   const title = (document.getElementById('mediaTitle')||{}).value || '';
-  // if editing existing media, allow updating title and optionally replacing file
-  if (editingMediaId) {
-    const data = getData();
-    const m = data.testimonials.find(t=>t.id===editingMediaId);
-    if (!m){ showToast('Media not found','danger'); return; }
-    m.title = title || m.title;
-    if (files && files.length>0) {
-      const r = new FileReader();
-      r.onload = ()=>{
-        m.src = r.result;
-        saveData(data);
-        editingMediaId = null;
-        (document.getElementById('mediaTitle')||{}).value = '';
-        (document.getElementById('mediaFile')||{}).value = null;
-        document.getElementById('uploadMediaBtn').textContent = 'Upload';
-        const cancelMedia = document.getElementById('cancelMediaEditBtn'); if (cancelMedia) cancelMedia.style.display='none';
-        showToast('Media updated','success');
-        try{ renderAdmin(); }catch(e){}
-        try{ exportCSVs(); }catch(e){}
-      };
-      r.readAsDataURL(files[0]);
-    } else {
-      saveData(data);
-      editingMediaId = null;
-      (document.getElementById('mediaTitle')||{}).value = '';
-      showToast('Media updated','success');
-      try{ renderAdmin(); }catch(e){}
-      try{ exportCSVs(); }catch(e){}
-    }
-    return;
-  }
   if (!files || files.length === 0){ showToast('Select one or more files','warning'); return; }
-  const readers = Array.from(files).map(file => new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res({ file, data: r.result });
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  }));
-  Promise.all(readers).then(results => {
+
+  // prepare form data for upload to server
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+
+  try{
+    const resp = await fetch('/upload-media', { method:'POST', body: fd });
+    const json = await resp.json();
+    if (!json || !json.ok){ showToast('Upload failed','danger'); console.error(json); return; }
+
+    const uploaded = json.files; // [{filename,url,type}]
     const data = getData();
-    results.forEach(r => {
-      const f = r.file;
-      const t = f.type && f.type.startsWith('image') ? 'image' : (f.type && f.type.startsWith('video') ? 'video' : 'file');
-      data.testimonials.push({ id: 'media_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), title: title || f.name, type: t, src: r.data });
-    });
+
+    if (editingMediaId) {
+      const t = data.testimonials.find(x=>x.id===editingMediaId);
+      if (!t){ showToast('Media not found','danger'); return; }
+      t.title = title || t.title;
+      t.media = uploaded.map(u=>({ id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), type: u.type, url: u.url, filename: u.filename }));
+      editingMediaId = null;
+      document.getElementById('uploadMediaBtn').textContent = 'Upload';
+      const cancelMedia = document.getElementById('cancelMediaEditBtn'); if (cancelMedia) cancelMedia.style.display='none';
+      showToast('Media updated','success');
+    } else {
+      const mediaItems = uploaded.map(u=>({ id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), type: u.type, url: u.url, filename: u.filename }));
+      data.testimonials.push({ id: 'media_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), title: title || (uploaded[0] && uploaded[0].filename) || 'Media', type: mediaItems.length===1?mediaItems[0].type:'mixed', media: mediaItems });
+      showToast('Uploaded','success');
+    }
+
     saveData(data);
     (document.getElementById('mediaTitle')||{}).value = '';
     (document.getElementById('mediaFile')||{}).value = null;
-    showToast('Uploaded','success');
     try { renderAdmin(); } catch(e) {}
     try { exportCSVs(); } catch(e) {}
-  }).catch(err => {
-    console.error(err);
-    showToast('Upload failed','danger');
-  });
-}
+  }catch(err){ console.error(err); showToast('Upload failed','danger'); }
+} 
 
 function exportJSON() {
   const json = JSON.stringify(getData(), null, 2);
@@ -147,20 +127,58 @@ function importJSON() {
   const r = new FileReader();
   r.onload = () => {
     try {
-      JSON.parse(r.result);
-      localStorage.setItem("TRAVEL_SITE_DATA", r.result);
+      const parsed = JSON.parse(r.result);
+      saveData(parsed);
       showToast('Imported successfully','success');
-      location.reload();
-    } catch {
+      try{ renderAdmin(); }catch(e){}
+      try{ renderSettings(); }catch(e){}
+    } catch (err) {
+      console.error(err);
       showToast('Invalid JSON','danger');
     }
   };
   r.readAsText(f);
 }
 
+// CSV import helpers
+function readFileText(id){ return new Promise((resolve,reject)=>{ const f = document.getElementById(id).files[0]; if(!f) return reject('no file'); const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsText(f); }); }
+
+async function importPackagesCSV(){
+  try{
+    const f = document.getElementById('importPackagesFile').files[0]; if (!f) throw new Error('no file');
+    const fd = new FormData(); fd.append('file', f); fd.append('target','packages.csv');
+    const res = await fetch('/upload-csv', { method:'POST', body: fd });
+    const j = await res.json(); if (!j || !j.ok) throw new Error(j && j.error || 'upload failed');
+    showToast('Packages CSV uploaded','success');
+    // refresh from server
+    try{ syncFromServer(); }catch(e){}
+  }catch(e){ console.error(e); showToast('Import packages failed','danger'); }
+}
+
+async function importTestimonialsCSV(){
+  try{
+    const f = document.getElementById('importTestimonialsFile').files[0]; if (!f) throw new Error('no file');
+    const fd = new FormData(); fd.append('file', f); fd.append('target','testimonial.csv');
+    const res = await fetch('/upload-csv', { method:'POST', body: fd });
+    const j = await res.json(); if (!j || !j.ok) throw new Error(j && j.error || 'upload failed');
+    showToast('Testimonials CSV uploaded','success');
+    try{ syncFromServer(); }catch(e){}
+  }catch(e){ console.error(e); showToast('Import testimonials failed','danger'); }
+}
+
+async function importSettingsCSV(){
+  try{
+    const f = document.getElementById('importSettingsFile').files[0]; if (!f) throw new Error('no file');
+    const fd = new FormData(); fd.append('file', f); fd.append('target','settings.csv');
+    const res = await fetch('/upload-csv', { method:'POST', body: fd });
+    const j = await res.json(); if (!j || !j.ok) throw new Error(j && j.error || 'upload failed');
+    showToast('Settings CSV uploaded','success');
+    try{ syncFromServer(); }catch(e){}
+  }catch(e){ console.error(e); showToast('Import settings failed','danger'); }
+}
+
 function logout() {
   try{ sessionStorage.removeItem('isLoggedIn'); }catch(e){}
-  try{ localStorage.removeItem('isLoggedIn'); }catch(e){}
   location.href = "../admin.html";
 }
 
@@ -199,23 +217,28 @@ function exportCSVs() {
   downloadFile("packages.csv", pkgCsv);
 
   // testimonial.csv
-  const tHeaders = ["id", "title", "type", "src"];
-  const tRows = data.testimonials.map(t => ({ id: t.id, title: t.title, type: t.type, src: t.src }));
+  const tHeaders = ["id", "title", "type", "media"];
+  const tRows = data.testimonials.map(t => ({
+    id: t.id,
+    title: t.title,
+    type: t.type || (Array.isArray(t.media)? t.media.map(m=>m.type).join('|') : ''),
+    media: Array.isArray(t.media)? t.media.map(m=>m.url || m).join(';') : (t.src || '')
+  }));
   const tCsv = toCSV(tRows, tHeaders);
   downloadFile("testimonial.csv", tCsv);
 
-  // Try to POST to a local server (optional). If the server is not running, it's fine.
-  tryPostCSVs({ packages: pkgRows, testimonials: tRows });
+  // settings.csv (key,value)
+  const s = data.settings || {};
+  const settingsRows = Object.keys(s).map(k=>({ key: k, value: String(s[k]) }));
+  const settingsCsv = toCSV(settingsRows, ['key','value']);
+  downloadFile('settings.csv', settingsCsv);
+
+  showToast('CSVs downloaded — upload to your hosting to persist', 'success', 3000);
 }
 
 function tryPostCSVs(payload) {
-  fetch("http://localhost:3000/save-csv", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  }).catch(() => {
-    // ignore errors; server is optional
-  });
+  // serverless mode: do nothing. CSVs are downloaded and must be uploaded to your hosting (or committed) to persist.
+  console.log('CSV payload ready, serverless mode - download the CSVs to persist', payload);
 }
 
 // Wire the Export JSON button in backoffice to also export CSVs
@@ -250,18 +273,24 @@ function renderAdmin() {
   // testimonials table
   const tBody = document.getElementById('testimonialsTableBody');
   if (tBody) {
-    tBody.innerHTML = data.testimonials.map(t => `
+    tBody.innerHTML = data.testimonials.map(t => {
+      const mediaHtml = (Array.isArray(t.media)? t.media.map(m=>{
+        if (m.type === 'image') return `<img src="${m.url}" style="max-width:140px; border-radius:6px; margin:4px">`;
+        if (m.type === 'video') return `<video src="${m.url}" style="max-width:240px; display:block; margin:4px" controls muted></video>`;
+        return `<a href="${m.url}">${escapeHtml(m.filename||m.url)}</a>`;
+      }).join('') : (t.type==='image' && (t.src||t.media) ? `<img src="${t.src|| (t.media && t.media[0] && t.media[0].url)}" style="max-width:140px; border-radius:6px">`:`<video src="${t.src|| (t.media && t.media[0] && t.media[0].url)}" style="max-width:140px" controls muted></video>`));
+
+      return `
       <tr>
-        <td style="width:160px">${t.type==='image'?`<img src="${t.src}" style="max-width:140px; border-radius:6px">`:`<video src="${t.src}" style="max-width:140px" controls muted></video>`}</td>
+        <td style="width:260px">${mediaHtml}</td>
         <td>${escapeHtml(t.title || '')}</td>
-        <td>${escapeHtml(t.type || '')}</td>
+        <td>${escapeHtml(t.type || (Array.isArray(t.media)? t.media.map(m=>m.type).join(',') : ''))}</td>
         <td>
           <button class="btn btn-sm btn-outline-primary" onclick="editMedia('${t.id}')">Edit</button>
           <button class="btn btn-sm btn-outline-danger ms-2" onclick="deleteMedia('${t.id}')">Delete</button>
-          <a href="${t.src}" download="${t.id}" class="btn btn-sm btn-link ms-2">Download</a>
         </td>
       </tr>
-    `).join('') || '<tr><td colspan="4">No testimonials</td></tr>';
+    `}).join('') || '<tr><td colspan="4">No testimonials</td></tr>';
   }
 }
 
@@ -288,9 +317,9 @@ function cancelEditPackage(){
 
 function editMedia(id){
   const data = getData();
-  const m = data.testimonials.find(x=>x.id===id);
-  if (!m){ showToast('Media not found','danger'); return; }
-  document.getElementById('mediaTitle').value = m.title || '';
+  const t = data.testimonials.find(x=>x.id===id);
+  if (!t){ showToast('Media not found','danger'); return; }
+  document.getElementById('mediaTitle').value = t.title || '';
   editingMediaId = id;
   document.getElementById('uploadMediaBtn').textContent = 'Save Changes';
   const cancelMedia = document.getElementById('cancelMediaEditBtn'); if (cancelMedia) cancelMedia.style.display='inline-block';
@@ -315,7 +344,14 @@ function renderSettings() {
   (document.getElementById('setting_heroSubtitle')||{}).value = s.heroSubtitle || '';
   (document.getElementById('setting_headerBg')||{}).value = s.headerBg || '#0a7cff';
 
-  // default page HTML content (from current static pages)
+  // favicon preview
+  try{
+    const fEl = document.getElementById('setting_faviconPreview');
+    if (fEl){ if (s.favicon){ fEl.src = s.favicon; fEl.style.display = 'inline-block'; } else { fEl.src=''; fEl.style.display='none'; } }
+    const lEl = document.getElementById('setting_logoPreview'); if (lEl){ if (s.logo){ lEl.src = s.logo; lEl.style.display='inline-block'; } else { lEl.style.display='none'; } }
+  }catch(e){}
+
+  // default page HTML content (from current static pages) 
   const defaultTerms = `<h2>Terms & Conditions</h2>
       <p>These are the general terms and conditions for using Kandarp Tours & Travels. By using the site you agree to the terms.</p>
       <h3>Booking</h3>
@@ -338,9 +374,11 @@ function renderSettings() {
 
   if (quillRefund) quillRefund.clipboard.dangerouslyPasteHTML(s.refundHtml || defaultRefund);
   else (document.getElementById('setting_refundHtml')||{}).value = s.refundHtml || defaultRefund;
-} 
+}
 
-function saveSettings() {
+  
+
+async function saveSettings() {
   const data = getData();
   data.settings = data.settings || {};
   data.settings.siteName = (document.getElementById('setting_siteName')||{}).value || data.settings.siteName;
@@ -356,48 +394,57 @@ function saveSettings() {
   if (quillPrivacy) data.settings.privacyHtml = quillPrivacy.root.innerHTML; else data.settings.privacyHtml = (document.getElementById('setting_privacyHtml')||{}).value || data.settings.privacyHtml;
   if (quillRefund) data.settings.refundHtml = quillRefund.root.innerHTML; else data.settings.refundHtml = (document.getElementById('setting_refundHtml')||{}).value || data.settings.refundHtml; 
 
-  // handle logo file if present
-  const f = (document.getElementById('setting_logoFile')||{}).files && document.getElementById('setting_logoFile').files[0];
-  if (f) {
-    const r = new FileReader();
-    r.onload = () => {
-      data.settings.logo = r.result;
-      saveData(data);
-      applySettingsToSite();
-      renderSettings();
-      showToast('Settings saved','success');
-    };
-    r.readAsDataURL(f);
-  } else {
+  // upload logo + favicon to server (store assets in assets/testimonials or assets/ as served)
+  const logoFile = (document.getElementById('setting_logoFile')||{}).files && document.getElementById('setting_logoFile').files[0];
+  const faviconFile = (document.getElementById('setting_faviconFile')||{}).files && document.getElementById('setting_faviconFile').files[0];
+
+  try{
+    if (faviconFile){
+      const fd = new FormData(); fd.append('files', faviconFile);
+      const r = await fetch('/upload-media', { method:'POST', body: fd });
+      const j = await r.json();
+      if (j && j.ok && j.files && j.files[0]) data.settings.favicon = j.files[0].url;
+      else showToast('Favicon upload failed','warning');
+    }
+    if (logoFile){
+      const fd2 = new FormData(); fd2.append('files', logoFile);
+      const r2 = await fetch('/upload-media', { method:'POST', body: fd2 });
+      const j2 = await r2.json();
+      if (j2 && j2.ok && j2.files && j2.files[0]) data.settings.logo = j2.files[0].url;
+      else showToast('Logo upload failed','warning');
+    }
+
     saveData(data);
     applySettingsToSite();
     renderSettings();
     showToast('Settings saved','success');
-  }
-}
+  }catch(e){ console.error(e); showToast('Failed to save settings','danger'); }
+} 
 
 function resetSettings() {
-  if (!confirm('Reset settings to defaults?')) return;
-  const data = getData();
-  data.settings = {
-    siteName: 'Kandarp Tours & Travels', logo: '', themeColor: '#0a7cff', headerBg: '#0a7cff', fontFamily: 'Inter', fontColor: '#0f172a', heroTitle: 'Explore curated travel packages', heroSubtitle: 'Discover memorable journeys and experiences',
-    termsHtml: `<h2>Terms & Conditions</h2>
-      <p>These are the general terms and conditions for using Kandarp Tours & Travels. By using the site you agree to the terms.</p>
-      <h3>Booking</h3>
-      <p>All bookings are subject to availability and confirmation.</p>
-      <h3>Liability</h3>
-      <p>We act as an agent for service providers; our liability is limited as per applicable law.</p>`,
-    privacyHtml: `<h2>Privacy Policy</h2>
-      <p>We respect your privacy. This page describes how we collect and use personal data.</p>
-      <h3>Data Collection</h3>
-      <p>We collect only necessary information for bookings and support; data is stored locally in your browser and optionally exported to CSV.</p>`,
-    refundHtml: `<h2>Refund Policy</h2>
-      <p>Refunds depend on supplier policies. Requests must be submitted within 7 days of cancellation with proof.</p>`
-  };
-  saveData(data);
-  applySettingsToSite();
-  renderAdmin();
-}
+  showConfirm('Reset settings to defaults? This will overwrite header and pages.','Reset settings').then(ok=>{ if(!ok) return; 
+    const data = getData();
+    data.settings = {
+      siteName: 'Kandarp Tours & Travels', logo: '', themeColor: '#0a7cff', headerBg: '#0a7cff', fontFamily: 'Inter', fontColor: '#0f172a', heroTitle: 'Explore curated travel packages', heroSubtitle: 'Discover memorable journeys and experiences',
+      termsHtml: `<h2>Terms & Conditions</h2>
+        <p>These are the general terms and conditions for using Kandarp Tours & Travels. By using the site you agree to the terms.</p>
+        <h3>Booking</h3>
+        <p>All bookings are subject to availability and confirmation.</p>
+        <h3>Liability</h3>
+        <p>We act as an agent for service providers; our liability is limited as per applicable law.</p>`,
+      privacyHtml: `<h2>Privacy Policy</h2>
+        <p>We respect your privacy. This page describes how we collect and use personal data.</p>
+        <h3>Data Collection</h3>
+        <p>We collect only necessary information for bookings and support; data is stored locally in your browser and optionally exported to CSV.</p>`,
+      refundHtml: `<h2>Refund Policy</h2>
+        <p>Refunds depend on supplier policies. Requests must be submitted within 7 days of cancellation with proof.</p>`
+    };
+    saveData(data);
+    applySettingsToSite();
+    renderAdmin();
+    showToast('Settings reset to defaults','success');
+  });
+} 
 
 function loadGoogleFont(family) {
   // family may contain + for spaces (Open+Sans). convert to proper family for CSS
@@ -413,7 +460,7 @@ function applySettingsToSite() {
     if (s.themeColor) document.documentElement.style.setProperty('--primary', s.themeColor);
     if (s.fontColor) document.documentElement.style.setProperty('--font-color', s.fontColor);
     if (s.headerBg) {
-      const headerEl = document.querySelector('header'); if (headerEl) headerEl.style.background = s.headerBg;
+      const headerEl = document.querySelector('header'); if (headerEl){ headerEl.style.backgroundImage = 'none'; headerEl.style.backgroundColor = s.headerBg; }
     }
     if (s.fontFamily) {
       loadGoogleFont(s.fontFamily);
@@ -424,13 +471,15 @@ function applySettingsToSite() {
     const heroSubEl = document.querySelector('.hero p');
     if (heroTitleEl && s.heroTitle) heroTitleEl.textContent = s.heroTitle;
     if (heroSubEl && s.heroSubtitle) heroSubEl.textContent = s.heroSubtitle;
-    // logo & site name
+    // logo, favicon & site name
     const logoEl = document.getElementById('siteLogo');
     const brandText = document.querySelector('.brand .brand-text');
     const fallback = 'assets/logo.svg';
     if (logoEl) {
       if (s.logo) { logoEl.src = s.logo; logoEl.style.display = 'inline-block'; }
       else { logoEl.src = fallback; logoEl.style.display = 'inline-block'; }
+    }
+    if (s.favicon){ try{ let link = document.querySelector('link[rel="icon"]'); if(!link){ link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); } link.href = s.favicon; }catch(e){}
     }
     if (brandText) brandText.textContent = s.siteName || 'Kandarp Tours & Travels';
   } catch(e){ console.error(e); }
@@ -460,6 +509,23 @@ function deleteMedia(id) {
   });
 }
 
+// Preview page HTML in an iframe modal
+function showPreview(page){
+  const settings = (getData().settings || {});
+  let html = '';
+  if(page === 'terms') html = quillTerms ? quillTerms.root.innerHTML : (document.getElementById('setting_termsHtml')||{}).value || '';
+  if(page === 'privacy') html = quillPrivacy ? quillPrivacy.root.innerHTML : (document.getElementById('setting_privacyHtml')||{}).value || '';
+  if(page === 'refund') html = quillRefund ? quillRefund.root.innerHTML : (document.getElementById('setting_refundHtml')||{}).value || '';
+
+  const siteName = (settings.siteName || 'Kandarp Tours & Travels').replace(/</g,'&lt;');
+  const headerBg = settings.headerBg || '#0a7cff';
+
+  const doc = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/css/style.css"><style>body{padding:20px;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;} header{padding:20px;background:${headerBg};color:#fff} .brand-text{font-weight:700}</style></head><body><header><div class="container"><div class="brand"><span class="brand-text">${siteName}</span></div></div></header><main class="container"><section class="section">${html}</section></main></body></html>`;
+
+  const frame = document.getElementById('previewFrame'); if(frame) frame.srcdoc = doc;
+  const modalEl = document.getElementById('previewModal'); if(modalEl){ const modal = new bootstrap.Modal(modalEl); modal.show(); }
+}
+
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
 }
 
@@ -479,4 +545,32 @@ if (typeof window !== 'undefined') window.addEventListener('load', ()=>{ try { r
     }
   }catch(e){ console.warn('Quill init failed', e); }
   try{ renderSettings(); }catch(e){}
+
+  // show a small toast on server or CSV sync events to make persistence more visible
+  window.addEventListener('serverSync', (e)=>{
+    try{
+      const d = e && e.detail;
+      if (!d) return;
+      if (d.ok){
+        if (d.action === 'save') showToast('Saved to server ✅', 'success', 2000);
+        else showToast('Loaded data from server ✅', 'success', 2000);
+      } else {
+        if (d.action === 'save') showToast('Failed to save to server ⚠️', 'warning', 3000);
+        else showToast('Server sync failed ⚠️', 'warning', 3000);
+      }
+    }catch(e){}
+  });
+
+  window.addEventListener('csvSync', (e)=>{
+    try{
+      const d = e && e.detail;
+      if (!d) return;
+      if (d.ok){
+        if (d.action === 'save') showToast('Saved locally ✅', 'success', 1800);
+        else showToast('Loaded data from CSV/local ✅', 'success', 1800);
+      } else {
+        showToast('No CSVs found; using defaults/local data', 'warning', 2600);
+      }
+    }catch(e){}
+  });
 });
