@@ -1,0 +1,5 @@
+# CODEOWNERS: update entries to match your organization
+# Example: @your-github-username or @your-org/team-name
+
+# default: repository owners
+* @your-github-username

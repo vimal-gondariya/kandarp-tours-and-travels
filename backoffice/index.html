@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" href="../css/style.css">
+	<title>Backoffice — Admin</title>
+	<style>/* small admin overrides */
+		.admin-panel .card{box-shadow:none}
+		table{width:100%; border-collapse:collapse}
+		table th, table td{padding:8px; border-bottom:1px solid #eef2ff; text-align:left}
+		.sidebar button{display:block; width:100%; margin-bottom:8px}
+	</style>
+</head>
+<body>
+<script>
+if(sessionStorage.getItem("isLoggedIn")!=="true"){location.href="../admin.html"}
+</script>
+
+<div class="container admin-panel" style="padding:24px">
+	<div class="sidebar" style="width:240px; margin-right:18px">
+		<div class="card">
+			<strong>Admin</strong>
+		</div>
+		<div class="card">
+			<button onclick="showSection('packages')">Add Packages</button>
+			<button onclick="showSection('testimonials')">Add Testimonials</button>
+			<button onclick="showSection('settings')">Settings</button>
+			<button onclick="showSection('data')">Data Management</button>
+			<hr>
+			<button onclick="logout()">Logout</button>
+		</div>
+	</div>
+
+	<div class="admin-main" style="flex:1">
+		<section id="packages" class="admin-section card">
+			<h3>Add Package</h3>
+			<input id="pkg_title" placeholder="Title">
+			<input id="pkg_days" placeholder="Days">
+			<input id="pkg_includes" placeholder="Includes (comma separated)">
+			<button id="addPackageBtn">Add Package</button>
+
+			<h4 style="margin-top:18px">Packages</h4>
+			<table>
+				<thead><tr><th>Title</th><th>Days</th><th>Includes</th><th>Actions</th></tr></thead>
+				<tbody id="packagesTableBody"></tbody>
+			</table>
+		</section>
+
+		<section id="testimonials" class="admin-section card" style="display:none">
+			<h3>Add Testimonial Media</h3>
+			<input id="mediaTitle" placeholder="Media Title">
+			<input type="file" id="mediaFile" multiple>
+			<div style="margin-top:8px"><small>Select multiple images/videos to upload at once. Type is auto-detected.</small></div>
+			<button id="uploadMediaBtn">Upload</button>
+
+			<h4 style="margin-top:18px">Testimonials</h4>
+			<table>
+				<thead><tr><th>Preview</th><th>Title</th><th>Type</th><th>Actions</th></tr></thead>
+				<tbody id="testimonialsTableBody"></tbody>
+			</table>
+		</section>
+
+		<section id="data" class="admin-section card" style="display:none">
+			<h3>Data Management</h3>
+			<div style="display:flex; gap:8px; flex-wrap:wrap">
+				<button onclick="exportJSON()">Export JSON</button>
+				<button onclick="exportCSVs()">Export CSVs</button>
+				<input type="file" id="importFile" accept=".json">
+				<button onclick="importJSON()">Import JSON</button>
+			</div>
+		</section>
+    
+		<section id="settings" class="admin-section card" style="display:none">
+			<h3>Site Settings</h3>
+			<label>Site Name</label>
+			<input id="setting_siteName" placeholder="Site name">
+
+			<label>Logo</label>
+			<input type="file" id="setting_logoFile" accept="image/*">
+
+			<label>Theme Color</label>
+			<input type="color" id="setting_themeColor">
+
+			<label>Font Color</label>
+			<input type="color" id="setting_fontColor">
+
+			<label>Font Family</label>
+			<select id="setting_fontFamily">
+				<option>Inter</option>
+				<option>Roboto</option>
+				<option>Poppins</option>
+				<option>Montserrat</option>
+				<option>Open+Sans</option>
+				<option>Lato</option>
+			</select>
+
+			<label>Hero Title</label>
+			<input id="setting_heroTitle">
+
+			<label>Hero Subtitle</label>
+			<textarea id="setting_heroSubtitle" rows="3"></textarea>
+
+			<div style="margin-top:8px">
+				<button id="saveSettingsBtn">Save Settings</button>
+				<button id="resetSettingsBtn">Reset to Default</button>
+			</div>
+		</section>
+	</div>
+</div>
+
+<script src="../js/includes.js"></script>
+<script src="../js/data.js"></script>
+<script src="../js/admin.js"></script>
+<script>
+	// apply settings after includes are loaded
+	window.addEventListener('includesLoaded', ()=>{
+		try{ if (typeof renderAdmin==='function') renderAdmin(); }catch(e){}
+		try{ if (typeof renderSettings==='function') renderSettings(); }catch(e){}
+		try{ if (typeof applySettingsToSite==='function') applySettingsToSite(); }catch(e){}
+	});
+</script>
+<script>
+	// basic UI helpers
+	function showSection(id){ document.querySelectorAll('.admin-section').forEach(s=>s.style.display='none'); document.getElementById(id).style.display='block'; }
+	// wire buttons after scripts load
+	window.addEventListener('load', ()=>{
+		document.getElementById('addPackageBtn').addEventListener('click', addPackage);
+		document.getElementById('uploadMediaBtn').addEventListener('click', addMedia);
+		if (typeof renderAdmin === 'function') renderAdmin();
+		if (document.getElementById('saveSettingsBtn')) document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+		if (document.getElementById('resetSettingsBtn')) document.getElementById('resetSettingsBtn').addEventListener('click', resetSettings);
+		if (typeof renderSettings === 'function') renderSettings();
+	});
+</script>
+</body>
+</html>

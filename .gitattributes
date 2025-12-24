@@ -1,0 +1,5 @@
+# Auto-normalize text files
+* text=auto
+
+# treat assets as binary
+assets/* binary
