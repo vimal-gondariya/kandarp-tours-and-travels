@@ -4,14 +4,15 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width,initial-scale=1">
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 	<link rel="stylesheet" href="../css/style.css">
 	<title>Backoffice — Admin</title>
-	<style>/* small admin overrides */
-		.admin-panel .card{box-shadow:none}
-		table{width:100%; border-collapse:collapse}
-		table th, table td{padding:8px; border-bottom:1px solid #eef2ff; text-align:left}
-		.sidebar button{display:block; width:100%; margin-bottom:8px}
-	</style>
+	<style>
+/* small admin overrides */
+.admin-panel .card{box-shadow:none}
+.sidebar .list-group .list-group-item{border:none}
+.table td, .table th{vertical-align:middle}
+</style>
 </head>
 <body>
 <script>
@@ -20,98 +21,176 @@ if(sessionStorage.getItem("isLoggedIn")!=="true" && localStorage.getItem("isLogg
 }
 </script>
 
-<div class="container admin-panel" style="padding:24px">
-	<div class="sidebar" style="width:240px; margin-right:18px">
-		<div class="card">
-			<strong>Admin</strong>
-		</div>
-		<div class="card">
-			<button onclick="showSection('packages')">Add Packages</button>
-			<button onclick="showSection('testimonials')">Add Testimonials</button>
-			<button onclick="showSection('settings')">Settings</button>
-			<button onclick="showSection('data')">Data Management</button>
-			<hr>
-			<button onclick="logout()">Logout</button>
-		</div>
-	</div>
+<div class="container-fluid" style="padding:24px">
+  <div class="row admin-panel">
+    <aside class="col-12 col-lg-3 mb-3">
+      <div class="card">
+        <div class="card-body p-3">
+          <div class="d-flex align-items-center mb-3">
+            <img id="backLogo" src="../assets/logo.svg" alt="Logo" style="height:36px" class="me-2">
+            <strong class="mb-0">Admin</strong>
+          </div>
+          <div class="list-group">
+            <button class="list-group-item list-group-item-action" onclick="showSection('packages')"><i class="bi bi-box-seam me-2"></i>Packages</button>
+            <button class="list-group-item list-group-item-action" onclick="showSection('testimonials')"><i class="bi bi-camera-video me-2"></i>Testimonials</button>
+            <button class="list-group-item list-group-item-action" onclick="showSection('settings')"><i class="bi bi-gear me-2"></i>Settings</button>
+            <button class="list-group-item list-group-item-action" onclick="showSection('data')"><i class="bi bi-database me-2"></i>Data</button>
+            <div class="mt-3">
+              <button class="btn btn-outline-danger w-100" onclick="logout()"><i class="bi bi-box-arrow-right me-1"></i>Logout</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
 
-	<div class="admin-main" style="flex:1">
-		<section id="packages" class="admin-section card">
-			<h3>Add Package</h3>
-			<input id="pkg_title" placeholder="Title">
-			<input id="pkg_days" placeholder="Days">
-			<input id="pkg_includes" placeholder="Includes (comma separated)">
-			<button id="addPackageBtn">Add Package</button>
+    <main class="col-12 col-lg-9 admin-main">
+      <section id="packages" class="admin-section card mb-3">
+        <div class="card-body">
+          <h3 class="card-title">Add / Edit Package</h3>
+          <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+              <label class="form-label">Title</label>
+              <input id="pkg_title" class="form-control" placeholder="Title">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Days</label>
+              <input id="pkg_days" class="form-control" placeholder="Days">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Includes</label>
+              <input id="pkg_includes" class="form-control" placeholder="Includes (comma separated)">
+            </div>
+            <div class="col-md-1 d-grid">
+              <button id="addPackageBtn" class="btn btn-primary">Add</button>
+            </div>
+            <div class="col-12">
+              <button id="cancelPackageEditBtn" class="btn btn-secondary btn-sm mt-2" style="display:none" onclick="cancelEditPackage()">Cancel</button>
+            </div>
+          </div>
 
-			<h4 style="margin-top:18px">Packages</h4>
-			<table>
-				<thead><tr><th>Title</th><th>Days</th><th>Includes</th><th>Actions</th></tr></thead>
-				<tbody id="packagesTableBody"></tbody>
-			</table>
-		</section>
+          <h4 class="mt-4">Packages</h4>
+          <div class="table-responsive">
+            <table class="table table-striped table-hover">
+              <thead><tr><th>Title</th><th>Days</th><th>Includes</th><th>Actions</th></tr></thead>
+              <tbody id="packagesTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-		<section id="testimonials" class="admin-section card" style="display:none">
-			<h3>Add Testimonial Media</h3>
-			<input id="mediaTitle" placeholder="Media Title">
-			<input type="file" id="mediaFile" multiple>
-			<div style="margin-top:8px"><small>Select multiple images/videos to upload at once. Type is auto-detected.</small></div>
-			<button id="uploadMediaBtn">Upload</button>
+      <section id="testimonials" class="admin-section card mb-3" style="display:none">
+        <div class="card-body">
+          <h3 class="card-title">Add Testimonial Media</h3>
+          <div class="row g-2 align-items-end">
+            <div class="col-md-6">
+              <label class="form-label">Media Title</label>
+              <input id="mediaTitle" class="form-control" placeholder="Media Title">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Files</label>
+              <input type="file" id="mediaFile" class="form-control" multiple>
+            </div>
+            <div class="col-md-2 d-grid">
+              <button id="uploadMediaBtn" class="btn btn-primary">Upload</button>
+            </div>
+            <div class="col-12">
+              <button id="cancelMediaEditBtn" class="btn btn-secondary btn-sm mt-2" style="display:none" onclick="cancelEditMedia()">Cancel</button>
+            </div>
+          </div>
 
-			<h4 style="margin-top:18px">Testimonials</h4>
-			<table>
-				<thead><tr><th>Preview</th><th>Title</th><th>Type</th><th>Actions</th></tr></thead>
-				<tbody id="testimonialsTableBody"></tbody>
-			</table>
-		</section>
+          <h4 class="mt-4">Testimonials</h4>
+          <div class="table-responsive">
+            <table class="table table-striped table-hover">
+              <thead><tr><th style="width:160px">Preview</th><th>Title</th><th>Type</th><th>Actions</th></tr></thead>
+              <tbody id="testimonialsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-		<section id="data" class="admin-section card" style="display:none">
-			<h3>Data Management</h3>
-			<div style="display:flex; gap:8px; flex-wrap:wrap">
-				<button onclick="exportJSON()">Export JSON</button>
-				<button onclick="exportCSVs()">Export CSVs</button>
-				<input type="file" id="importFile" accept=".json">
-				<button onclick="importJSON()">Import JSON</button>
-			</div>
-		</section>
-    
-		<section id="settings" class="admin-section card" style="display:none">
-			<h3>Site Settings</h3>
-			<label>Site Name</label>
-			<input id="setting_siteName" placeholder="Site name">
+      <section id="data" class="admin-section card mb-3" style="display:none">
+        <div class="card-body">
+          <h3 class="card-title">Data Management</h3>
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-primary" onclick="exportJSON()">Export JSON</button>
+            <button class="btn btn-outline-primary" onclick="exportCSVs()">Export CSVs</button>
+            <input type="file" id="importFile" accept=".json" class="form-control-file ms-2">
+            <button class="btn btn-outline-success" onclick="importJSON()">Import JSON</button>
+          </div>
+        </div>
+      </section>
 
-			<label>Logo</label>
-			<input type="file" id="setting_logoFile" accept="image/*">
-
-			<label>Theme Color</label>
-			<input type="color" id="setting_themeColor">
-
-			<label>Font Color</label>
-			<input type="color" id="setting_fontColor">
-
-			<label>Font Family</label>
-			<select id="setting_fontFamily">
-				<option>Inter</option>
-				<option>Roboto</option>
-				<option>Poppins</option>
-				<option>Montserrat</option>
-				<option>Open+Sans</option>
-				<option>Lato</option>
-			</select>
-
-			<label>Hero Title</label>
-			<input id="setting_heroTitle">
-
-			<label>Hero Subtitle</label>
-			<textarea id="setting_heroSubtitle" rows="3"></textarea>
-
-			<div style="margin-top:8px">
-				<button id="saveSettingsBtn">Save Settings</button>
-				<button id="resetSettingsBtn">Reset to Default</button>
-			</div>
-		</section>
-	</div>
+      <section id="settings" class="admin-section card mb-3" style="display:none">
+        <div class="card-body">
+          <h3 class="card-title">Site Settings</h3>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Site Name</label>
+              <input id="setting_siteName" class="form-control" placeholder="Site name">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Logo</label>
+              <input type="file" id="setting_logoFile" class="form-control" accept="image/*">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Theme Color</label>
+              <input type="color" id="setting_themeColor" class="form-control form-control-color" value="#0a7cff">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Font Color</label>
+              <input type="color" id="setting_fontColor" class="form-control form-control-color" value="#0f172a">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Font Family</label>
+              <select id="setting_fontFamily" class="form-select">
+                <option>Inter</option>
+                <option>Roboto</option>
+                <option>Poppins</option>
+                <option>Montserrat</option>
+                <option>Open+Sans</option>
+                <option>Lato</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Hero Title</label>
+              <input id="setting_heroTitle" class="form-control">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Hero Subtitle</label>
+              <textarea id="setting_heroSubtitle" rows="3" class="form-control"></textarea>
+            </div>
+            <div class="col-12 mt-2">
+              <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+              <button id="resetSettingsBtn" class="btn btn-outline-secondary ms-2">Reset to Default</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
 </div>
 
+<!-- Toast container for non-blocking messages -->
+<div id="toastContainer" class="position-fixed bottom-0 end-0 p-3" style="z-index:1080; max-width:320px;"></div>
+
+<!-- Reusable confirmation modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">Are you sure?</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary confirm-cancel-btn" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger confirm-ok-btn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../js/includes.js"></script>
 <script src="../js/data.js"></script>
 <script src="../js/admin.js"></script>
@@ -128,13 +207,16 @@ if(sessionStorage.getItem("isLoggedIn")!=="true" && localStorage.getItem("isLogg
 	function showSection(id){ document.querySelectorAll('.admin-section').forEach(s=>s.style.display='none'); document.getElementById(id).style.display='block'; }
 	// wire buttons after scripts load
 	window.addEventListener('load', ()=>{
-		document.getElementById('addPackageBtn').addEventListener('click', addPackage);
-		document.getElementById('uploadMediaBtn').addEventListener('click', addMedia);
-		if (typeof renderAdmin === 'function') renderAdmin();
-		if (document.getElementById('saveSettingsBtn')) document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
-		if (document.getElementById('resetSettingsBtn')) document.getElementById('resetSettingsBtn').addEventListener('click', resetSettings);
-		if (typeof renderSettings === 'function') renderSettings();
-	});
+    document.getElementById('addPackageBtn').addEventListener('click', addPackage);
+    document.getElementById('uploadMediaBtn').addEventListener('click', addMedia);
+    const cancelPkg = document.getElementById('cancelPackageEditBtn'); if (cancelPkg) cancelPkg.addEventListener('click', cancelEditPackage);
+    const cancelMedia = document.getElementById('cancelMediaEditBtn'); if (cancelMedia) cancelMedia.addEventListener('click', cancelEditMedia);
+    showSection('packages');
+    if (typeof renderAdmin === 'function') renderAdmin();
+    if (document.getElementById('saveSettingsBtn')) document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+    if (document.getElementById('resetSettingsBtn')) document.getElementById('resetSettingsBtn').addEventListener('click', resetSettings);
+    if (typeof renderSettings === 'function') renderSettings();
+});
 </script>
 </body>
 </html>

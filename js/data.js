@@ -2,7 +2,7 @@ const STORAGE_KEY = "TRAVEL_SITE_DATA";
 
 const defaultData = {
   settings: {
-    siteName: "Trawellign",
+    siteName: "Kandarp Tours & Travels",
     logo: "",
     themeColor: "#0a7cff",
     fontFamily: "Inter",

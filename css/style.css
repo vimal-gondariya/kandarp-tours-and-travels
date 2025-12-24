@@ -47,13 +47,10 @@ input,button,select,textarea{font-family:inherit}
 .login-box{max-width:320px;margin:100px auto}
 
 /* Admin panel */
-.admin-panel{display:flex; gap:18px}
-.admin-panel .sidebar{flex:0 0 240px}
+.admin-panel .sidebar{flex:0 0 260px; max-width:260px}
 .admin-panel .admin-main{flex:1}
 .admin-panel .sidebar .card{padding:12px}
 .admin-panel .admin-main .card{padding:16px}
 .admin-panel table img{border-radius:6px; max-height:90px}
-
-/* Right sticky sidebar layout for admin */
-.admin-panel .sidebar{float:right; width:260px; position:sticky; top:18px}
-.admin-panel .admin-main{margin-right:300px}
+/* Sticky sidebar on wide screens */
+@media(min-width: 992px){ .admin-panel .sidebar{position:sticky; top:18px} }

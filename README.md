@@ -1,4 +1,4 @@
-# Travel Site (Trawellign)
+# Travel Site (Kandarp Tours & Travels)
 
 This is a static travel site and admin backoffice. You can host it on GitHub Pages.
 

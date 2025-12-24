@@ -1,16 +1,54 @@
 let editingPackageId = null;
 let editingMediaId = null;
 
+// UI helpers: Bootstrap toasts and confirmation modal
+function showToast(message, type='success', timeout=3000){
+  const container = document.getElementById('toastContainer');
+  if(!container){ // fallback
+    console.log('toast:', message);
+    return;
+  }
+  const toastEl = document.createElement('div');
+  toastEl.className = `toast align-items-center text-bg-${type} border-0 show`;
+  toastEl.setAttribute('role','alert');
+  toastEl.setAttribute('aria-live','assertive');
+  toastEl.setAttribute('aria-atomic','true');
+  toastEl.style.marginBottom = '8px';
+  toastEl.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>`;
+  container.appendChild(toastEl);
+  const bs = new bootstrap.Toast(toastEl, { delay: timeout });
+  bs.show();
+  toastEl.addEventListener('hidden.bs.toast', ()=> toastEl.remove());
+}
+
+function showConfirm(message, title='Confirm'){
+  return new Promise((resolve)=>{
+    const modalEl = document.getElementById('confirmModal');
+    if(!modalEl){ resolve(confirm(message)); return; }
+    modalEl.querySelector('.modal-title').textContent = title;
+    modalEl.querySelector('.modal-body').textContent = message;
+    const okBtn = modalEl.querySelector('.confirm-ok-btn');
+    const cancelBtn = modalEl.querySelector('.confirm-cancel-btn');
+    const modal = new bootstrap.Modal(modalEl);
+    function cleanup(){ okBtn.removeEventListener('click', onOk); cancelBtn.removeEventListener('click', onCancel); }
+    function onOk(){ cleanup(); modal.hide(); resolve(true); }
+    function onCancel(){ cleanup(); modal.hide(); resolve(false); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    modal.show();
+  });
+}
+
 function addPackage() {
   const titleEl = document.getElementById('pkg_title');
   const daysEl = document.getElementById('pkg_days');
   const includesEl = document.getElementById('pkg_includes');
-  if (!titleEl || !titleEl.value.trim()) return alert('Enter a package title');
+  if (!titleEl || !titleEl.value.trim()){ showToast('Enter a package title', 'warning'); return; }
   const data = getData();
   if (editingPackageId) {
     // update existing
     const pkg = data.packages.find(p=>p.id===editingPackageId);
-    if (!pkg) return alert('Package not found');
+    if (!pkg){ showToast('Package not found', 'danger'); return; }
     pkg.title = titleEl.value.trim();
     pkg.days = daysEl ? daysEl.value.trim() : '';
     pkg.includes = includesEl ? includesEl.value.split(',').map(s=>s.trim()).filter(Boolean) : [];
@@ -29,7 +67,7 @@ function addPackage() {
   if (includesEl) includesEl.value = '';
   document.getElementById('addPackageBtn').textContent = 'Add Package';
   const cancelBtn = document.getElementById('cancelPackageEditBtn'); if (cancelBtn) cancelBtn.style.display = 'none';
-  alert("Package saved");
+  showToast('Package saved', 'success');
   try { renderAdmin(); } catch(e) {}
   try { exportCSVs(); } catch(e) {}
 }
@@ -41,7 +79,7 @@ function addMedia() {
   if (editingMediaId) {
     const data = getData();
     const m = data.testimonials.find(t=>t.id===editingMediaId);
-    if (!m) return alert('Media not found');
+    if (!m){ showToast('Media not found','danger'); return; }
     m.title = title || m.title;
     if (files && files.length>0) {
       const r = new FileReader();
@@ -53,7 +91,7 @@ function addMedia() {
         (document.getElementById('mediaFile')||{}).value = null;
         document.getElementById('uploadMediaBtn').textContent = 'Upload';
         const cancelMedia = document.getElementById('cancelMediaEditBtn'); if (cancelMedia) cancelMedia.style.display='none';
-        alert('Media updated');
+        showToast('Media updated','success');
         try{ renderAdmin(); }catch(e){}
         try{ exportCSVs(); }catch(e){}
       };
@@ -62,13 +100,13 @@ function addMedia() {
       saveData(data);
       editingMediaId = null;
       (document.getElementById('mediaTitle')||{}).value = '';
-      alert('Media updated');
+      showToast('Media updated','success');
       try{ renderAdmin(); }catch(e){}
       try{ exportCSVs(); }catch(e){}
     }
     return;
   }
-  if (!files || files.length === 0) return alert('Select one or more files');
+  if (!files || files.length === 0){ showToast('Select one or more files','warning'); return; }
   const readers = Array.from(files).map(file => new Promise((res, rej) => {
     const r = new FileReader();
     r.onload = () => res({ file, data: r.result });
@@ -85,12 +123,12 @@ function addMedia() {
     saveData(data);
     (document.getElementById('mediaTitle')||{}).value = '';
     (document.getElementById('mediaFile')||{}).value = null;
-    alert('Uploaded');
+    showToast('Uploaded','success');
     try { renderAdmin(); } catch(e) {}
     try { exportCSVs(); } catch(e) {}
   }).catch(err => {
     console.error(err);
-    alert('Upload failed');
+    showToast('Upload failed','danger');
   });
 }
 
@@ -105,16 +143,16 @@ function exportJSON() {
 
 function importJSON() {
   const f = document.getElementById("importFile").files[0];
-  if (!f) return alert("Select JSON file");
+  if (!f){ showToast('Select JSON file','warning'); return; }
   const r = new FileReader();
   r.onload = () => {
     try {
       JSON.parse(r.result);
       localStorage.setItem("TRAVEL_SITE_DATA", r.result);
-      alert("Imported successfully");
+      showToast('Imported successfully','success');
       location.reload();
     } catch {
-      alert("Invalid JSON");
+      showToast('Invalid JSON','danger');
     }
   };
   r.readAsText(f);
@@ -230,7 +268,7 @@ function renderAdmin() {
 function editPackage(id) {
   const data = getData();
   const p = data.packages.find(x=>x.id===id);
-  if (!p) return alert('Package not found');
+  if (!p){ showToast('Package not found','danger'); return; }
   document.getElementById('pkg_title').value = p.title || '';
   document.getElementById('pkg_days').value = p.days || '';
   document.getElementById('pkg_includes').value = Array.isArray(p.includes) ? p.includes.join(', ') : (p.includes||'');
@@ -251,7 +289,7 @@ function cancelEditPackage(){
 function editMedia(id){
   const data = getData();
   const m = data.testimonials.find(x=>x.id===id);
-  if (!m) return alert('Media not found');
+  if (!m){ showToast('Media not found','danger'); return; }
   document.getElementById('mediaTitle').value = m.title || '';
   editingMediaId = id;
   document.getElementById('uploadMediaBtn').textContent = 'Save Changes';
@@ -296,14 +334,14 @@ function saveSettings() {
       saveData(data);
       applySettingsToSite();
       renderSettings();
-      alert('Settings saved');
+      showToast('Settings saved','success');
     };
     r.readAsDataURL(f);
   } else {
     saveData(data);
     applySettingsToSite();
     renderSettings();
-    alert('Settings saved');
+    showToast('Settings saved','success');
   }
 }
 
@@ -311,7 +349,7 @@ function resetSettings() {
   if (!confirm('Reset settings to defaults?')) return;
   const data = getData();
   data.settings = {
-    siteName: 'Trawellign', logo: '', themeColor: '#0a7cff', fontFamily: 'Inter', fontColor: '#0f172a', heroTitle: 'Explore curated travel packages', heroSubtitle: 'Discover memorable journeys and experiences'
+    siteName: 'Kandarp Tours & Travels', logo: '', themeColor: '#0a7cff', fontFamily: 'Inter', fontColor: '#0f172a', heroTitle: 'Explore curated travel packages', heroSubtitle: 'Discover memorable journeys and experiences'
   };
   saveData(data);
   applySettingsToSite();
@@ -348,24 +386,32 @@ function applySettingsToSite() {
       if (s.logo) { logoEl.src = s.logo; logoEl.style.display = 'inline-block'; }
       else { logoEl.src = fallback; logoEl.style.display = 'inline-block'; }
     }
-    if (brandText) brandText.textContent = s.siteName || 'Trawellign';
+    if (brandText) brandText.textContent = s.siteName || 'Kandarp Tours & Travels';
   } catch(e){ console.error(e); }
 }
 
 function deletePackage(id) {
-  const data = getData();
-  data.packages = data.packages.filter(p => p.id !== id);
-  saveData(data);
-  renderAdmin();
-  try { exportCSVs(); } catch(e) {}
+  showConfirm('Delete this package? This action cannot be undone.', 'Delete package').then(ok=>{
+    if(!ok) return;
+    const data = getData();
+    data.packages = data.packages.filter(p => p.id !== id);
+    saveData(data);
+    renderAdmin();
+    try { exportCSVs(); } catch(e) {}
+    showToast('Package deleted','success');
+  });
 }
 
 function deleteMedia(id) {
-  const data = getData();
-  data.testimonials = data.testimonials.filter(t => t.id !== id);
-  saveData(data);
-  renderAdmin();
-  try { exportCSVs(); } catch(e) {}
+  showConfirm('Delete this media from testimonials? This action cannot be undone.', 'Delete media').then(ok=>{
+    if(!ok) return;
+    const data = getData();
+    data.testimonials = data.testimonials.filter(t => t.id !== id);
+    saveData(data);
+    renderAdmin();
+    try { exportCSVs(); } catch(e) {}
+    showToast('Media deleted','success');
+  });
 }
 
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
